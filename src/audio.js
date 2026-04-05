@@ -1,7 +1,8 @@
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
+
 const TARGET_SAMPLE_RATE = 16000;
 
-// Shared AudioContext — created on user gesture, reused across all audio operations.
-// iOS Safari requires AudioContext to be created/resumed during a user tap.
 let sharedCtx = null;
 
 export function warmUpAudioContext() {
@@ -23,16 +24,21 @@ function getAudioContext() {
 
 /**
  * Extract audio from a video File as a 16 kHz mono Float32Array.
- * Tries decodeAudioData first, falls back to <video> element capture.
+ * Strategy:
+ *   1. Try decodeAudioData (fast, works for mp4/webm)
+ *   2. Fallback: FFmpeg.wasm to extract audio as WAV, then decodeAudioData on the WAV
  */
 export async function extractAudio(videoFile) {
+  // Try fast path first
   try {
     return await extractViaDecodeAudioData(videoFile);
   } catch (e) {
-    console.warn('[audio] decodeAudioData failed, falling back to video element capture:', e);
+    console.warn('[audio] decodeAudioData failed:', e.message);
   }
 
-  return await extractViaVideoElement(videoFile);
+  // Fallback: use FFmpeg to extract audio as WAV
+  console.log('[audio] Using FFmpeg to extract audio');
+  return await extractViaFFmpeg(videoFile);
 }
 
 /**
@@ -57,73 +63,38 @@ async function extractViaDecodeAudioData(videoFile) {
 }
 
 /**
- * Fallback: play video through <video> element,
- * capture audio via createMediaElementSource + ScriptProcessorNode.
+ * Fallback: use FFmpeg.wasm to extract audio as 16kHz mono WAV,
+ * then decode with decodeAudioData. Works for .mov and any format FFmpeg supports.
+ * Only does demux + audio transcode (no video processing), so it's fast.
  */
-async function extractViaVideoElement(videoFile) {
-  const url = URL.createObjectURL(videoFile);
-  const video = document.createElement('video');
-  video.playsInline = true;
-  video.preload = 'auto';
-  video.src = url;
-  video.volume = 0.01;
+async function extractViaFFmpeg(videoFile) {
+  const ffmpeg = new FFmpeg();
+  const ST_BASE = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm';
 
-  await new Promise((resolve, reject) => {
-    video.onloadedmetadata = resolve;
-    video.onerror = () => reject(new Error('Failed to load video for audio extraction'));
+  await ffmpeg.load({
+    coreURL: await toBlobURL(`${ST_BASE}/ffmpeg-core.js`, 'text/javascript'),
+    wasmURL: await toBlobURL(`${ST_BASE}/ffmpeg-core.wasm`, 'application/wasm'),
   });
 
-  const duration = video.duration;
+  await ffmpeg.writeFile('input', await fetchFile(videoFile));
+
+  // Extract audio only, convert to 16kHz mono WAV (fast, no video processing)
+  await ffmpeg.exec([
+    '-i', 'input',
+    '-vn',                // no video
+    '-ac', '1',           // mono
+    '-ar', '16000',       // 16kHz
+    '-f', 'wav',
+    'output.wav',
+  ]);
+
+  const wavData = await ffmpeg.readFile('output.wav');
+  ffmpeg.terminate();
+
+  // Decode the WAV (decodeAudioData handles WAV reliably on all browsers)
   const audioCtx = getAudioContext();
   if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-  const source = audioCtx.createMediaElementSource(video);
-  const bufferSize = 4096;
-  const processor = audioCtx.createScriptProcessor(bufferSize, 1, 1);
-  const capturedChunks = [];
-
-  processor.onaudioprocess = (e) => {
-    const input = e.inputBuffer.getChannelData(0);
-    capturedChunks.push(new Float32Array(input));
-  };
-
-  source.connect(processor);
-  processor.connect(audioCtx.destination);
-
-  video.currentTime = 0;
-  await video.play();
-
-  await new Promise((resolve) => {
-    video.onended = resolve;
-  });
-
-  const totalSamples = capturedChunks.reduce((sum, c) => sum + c.length, 0);
-  const rawAudio = new Float32Array(totalSamples);
-  let offset = 0;
-  for (const chunk of capturedChunks) {
-    rawAudio.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  const capturedSampleRate = audioCtx.sampleRate;
-
-  // Disconnect but don't close — shared context is reused
-  processor.disconnect();
-  source.disconnect();
-  URL.revokeObjectURL(url);
-  video.src = '';
-
-  // Resample to 16 kHz mono
-  const numSamples = Math.ceil(duration * TARGET_SAMPLE_RATE);
-  const offlineCtx = new OfflineAudioContext(1, numSamples, TARGET_SAMPLE_RATE);
-  const buffer = offlineCtx.createBuffer(1, rawAudio.length, capturedSampleRate);
-  buffer.getChannelData(0).set(rawAudio);
-
-  const bufSource = offlineCtx.createBufferSource();
-  bufSource.buffer = buffer;
-  bufSource.connect(offlineCtx.destination);
-  bufSource.start(0);
-
-  const resampled = await offlineCtx.startRendering();
-  return resampled.getChannelData(0);
+  const decoded = await audioCtx.decodeAudioData(wavData.buffer);
+  return decoded.getChannelData(0);
 }
