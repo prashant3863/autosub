@@ -22,6 +22,30 @@ export async function burnWithWebCodecs(videoFile, cues, style, sizeMult = 'medi
   const totalFrames = videoSamples.length;
   console.log(`[webcodecs] ${totalFrames} frames, ${videoTrack.width}x${videoTrack.height}, codec: ${videoTrack.codec}`);
 
+  // Verify decoder supports this codec before proceeding
+  const decoderSupport = await VideoDecoder.isConfigSupported({
+    codec: videoTrack.codec,
+    codedWidth: videoTrack.width,
+    codedHeight: videoTrack.height,
+  });
+  if (!decoderSupport.supported) {
+    throw new Error(`Codec ${videoTrack.codec} not supported by this device`);
+  }
+  console.log(`[webcodecs] Decoder config supported: ${videoTrack.codec}`);
+
+  // Verify encoder supports H.264 at this resolution
+  const encoderSupport = await VideoEncoder.isConfigSupported({
+    codec: 'avc1.640033',
+    width: videoTrack.width,
+    height: videoTrack.height,
+    bitrate: 8_000_000,
+    hardwareAcceleration: 'prefer-hardware',
+  });
+  if (!encoderSupport.supported) {
+    throw new Error(`H.264 encoding at ${videoTrack.width}x${videoTrack.height} not supported by this device`);
+  }
+  console.log(`[webcodecs] Encoder config supported: avc1.640033 ${videoTrack.width}x${videoTrack.height}`);
+
   // Step 2: Canvas for drawing subtitles
   // Always use HTMLCanvasElement — OffscreenCanvas + VideoFrame is unreliable on some Android devices
   const canvas = document.createElement('canvas');
