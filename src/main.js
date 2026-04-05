@@ -208,6 +208,12 @@ async function runTranscribe() {
   processingSection.style.display = '';
 
   try {
+    // Extract audio FIRST — must happen within 5s of user tap for iOS Safari
+    // (AudioContext and video.play() require user gesture / transient activation)
+    showPhase('Extracting audio...');
+    let audio = await extractAudio(videoFile);
+    perf.mark('audio extracted');
+
     showPhase('Downloading speech model (first time only)...');
     await loadModel((event) => {
       if (event.status === 'progress' && event.progress != null) {
@@ -215,10 +221,6 @@ async function runTranscribe() {
       }
     });
     perf.mark('model loaded');
-
-    showPhase('Extracting audio...');
-    let audio = await extractAudio(videoFile);
-    perf.mark('audio extracted');
 
     showPhase('Transcribing speech (this may take a minute)...');
     const liveTranscript = document.getElementById('liveTranscript');

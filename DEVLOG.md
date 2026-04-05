@@ -4,6 +4,7 @@
 
 - [x] **[bug] .mov container support** — `decodeAudioData()` fails on `.mov` (QuickTime) files. Detect by file extension/MIME type (`video/quicktime`), not platform. Fix: use `<video>` element + `MediaStreamAudioDestinationNode` for audio extraction when `decodeAudioData` fails or file is `.mov`.
 - [ ] **[perf] WebCodecs codec probing** — WebCodecs falls back to slow FFmpeg.wasm when HEVC decode isn't available. Fix: use `VideoDecoder.isConfigSupported()` to probe the video's actual codec before attempting. If HEVC unsupported, decode via `<video>` element + canvas capture (browser handles codec via OS-level decoders), then encode to H.264 via WebCodecs hardware encoder. Capability-based, not platform-based.
+- [ ] **[bug] Portrait preview overflow** — Preview canvas overflows its container when video is portrait mode. Needs max-height constraint to keep it within viewport.
 - [ ] **Custom fonts for subtitle text** — Let user upload or select fonts for subtitles. Needs font loading via FontFace API for Canvas rendering, and writing the font file to FFmpeg virtual FS for the fallback path.
 
 ## Progress

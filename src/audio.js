@@ -1,36 +1,35 @@
 const TARGET_SAMPLE_RATE = 16000;
 
-// Pre-warm AudioContext on user gesture to satisfy iOS Safari restrictions.
-// Call this synchronously inside a click/tap handler before any async work.
-let warmAudioCtx = null;
+// Shared AudioContext — created on user gesture, reused across all audio operations.
+// iOS Safari requires AudioContext to be created/resumed during a user tap.
+let sharedCtx = null;
+
 export function warmUpAudioContext() {
-  if (!warmAudioCtx) {
-    warmAudioCtx = new AudioContext();
-    // iOS requires resume() during a user gesture
-    if (warmAudioCtx.state === 'suspended') {
-      warmAudioCtx.resume();
-    }
-    console.log('[audio] AudioContext warmed up');
+  if (!sharedCtx || sharedCtx.state === 'closed') {
+    sharedCtx = new AudioContext();
   }
+  if (sharedCtx.state === 'suspended') {
+    sharedCtx.resume();
+  }
+  console.log('[audio] AudioContext warmed up, state:', sharedCtx.state);
+}
+
+function getAudioContext() {
+  if (!sharedCtx || sharedCtx.state === 'closed') {
+    sharedCtx = new AudioContext();
+  }
+  return sharedCtx;
 }
 
 /**
  * Extract audio from a video File as a 16 kHz mono Float32Array.
- * Tries decodeAudioData first (fast), falls back to <video> element
- * playback capture for containers it can't handle (e.g. .mov).
+ * Tries decodeAudioData first, falls back to <video> element capture.
  */
 export async function extractAudio(videoFile) {
-  const isMov = videoFile.name.toLowerCase().endsWith('.mov') ||
-                videoFile.type === 'video/quicktime';
-
-  if (!isMov) {
-    try {
-      return await extractViaDecodeAudioData(videoFile);
-    } catch (e) {
-      console.warn('[audio] decodeAudioData failed, falling back to video element capture:', e);
-    }
-  } else {
-    console.log('[audio] .mov detected, using video element capture');
+  try {
+    return await extractViaDecodeAudioData(videoFile);
+  } catch (e) {
+    console.warn('[audio] decodeAudioData failed, falling back to video element capture:', e);
   }
 
   return await extractViaVideoElement(videoFile);
@@ -41,10 +40,9 @@ export async function extractAudio(videoFile) {
  */
 async function extractViaDecodeAudioData(videoFile) {
   const arrayBuffer = await videoFile.arrayBuffer();
-  // Reuse pre-warmed context if available (iOS gesture requirement)
-  const audioCtx = warmAudioCtx || new AudioContext();
-  warmAudioCtx = null; // consume it
+  const audioCtx = getAudioContext();
   if (audioCtx.state === 'suspended') await audioCtx.resume();
+
   const decoded = await audioCtx.decodeAudioData(arrayBuffer);
 
   const numSamples = Math.ceil(decoded.duration * TARGET_SAMPLE_RATE);
@@ -55,24 +53,20 @@ async function extractViaDecodeAudioData(videoFile) {
   source.start(0);
 
   const resampled = await offlineCtx.startRendering();
-  const audioData = resampled.getChannelData(0);
-  audioCtx.close();
-
-  return audioData;
+  return resampled.getChannelData(0);
 }
 
 /**
- * Fallback: play video through <video> element at max speed,
- * capture raw audio samples via ScriptProcessorNode.
- * Works for any container the browser can play (.mov, etc.).
+ * Fallback: play video through <video> element,
+ * capture audio via createMediaElementSource + ScriptProcessorNode.
  */
 async function extractViaVideoElement(videoFile) {
   const url = URL.createObjectURL(videoFile);
   const video = document.createElement('video');
-  video.playsInline = true; // required for iOS
+  video.playsInline = true;
   video.preload = 'auto';
   video.src = url;
-  video.volume = 0.01; // near-silent but not muted (muted disables audio pipeline)
+  video.volume = 0.01;
 
   await new Promise((resolve, reject) => {
     video.onloadedmetadata = resolve;
@@ -80,12 +74,10 @@ async function extractViaVideoElement(videoFile) {
   });
 
   const duration = video.duration;
-  const audioCtx = warmAudioCtx || new AudioContext();
-  warmAudioCtx = null;
+  const audioCtx = getAudioContext();
   if (audioCtx.state === 'suspended') await audioCtx.resume();
-  const source = audioCtx.createMediaElementSource(video);
 
-  // Capture raw PCM samples via ScriptProcessorNode
+  const source = audioCtx.createMediaElementSource(video);
   const bufferSize = 4096;
   const processor = audioCtx.createScriptProcessor(bufferSize, 1, 1);
   const capturedChunks = [];
@@ -98,8 +90,6 @@ async function extractViaVideoElement(videoFile) {
   source.connect(processor);
   processor.connect(audioCtx.destination);
 
-  // Play at max reliable speed
-  video.playbackRate = Math.min(video.playbackRate, 4);
   video.currentTime = 0;
   await video.play();
 
@@ -107,7 +97,6 @@ async function extractViaVideoElement(videoFile) {
     video.onended = resolve;
   });
 
-  // Combine captured chunks
   const totalSamples = capturedChunks.reduce((sum, c) => sum + c.length, 0);
   const rawAudio = new Float32Array(totalSamples);
   let offset = 0;
@@ -116,13 +105,11 @@ async function extractViaVideoElement(videoFile) {
     offset += chunk.length;
   }
 
-  // Capture sample rate before cleanup
   const capturedSampleRate = audioCtx.sampleRate;
 
-  // Cleanup media elements
+  // Disconnect but don't close — shared context is reused
   processor.disconnect();
   source.disconnect();
-  audioCtx.close();
   URL.revokeObjectURL(url);
   video.src = '';
 
