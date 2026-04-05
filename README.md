@@ -39,7 +39,7 @@ Everything runs client-side using WebAssembly and WebCodecs. Your video never le
 
 ## How it was built
 
-This project was built entirely with [Claude Code](https://claude.ai/claude-code) — from architecture decisions to debugging HEVC 10-bit HDR transcoding issues to optimizing WebCodecs backpressure for 4K video processing. The full development log is in [`DEVLOG.md`](./DEVLOG.md).
+This project was built as an experiment in AI-assisted development — using advanced context management techniques to rapidly iterate on a complex client-side application. The full development log with all decisions, bugs, and fixes is in [`DEVLOG.md`](./DEVLOG.md).
 
 ## Development
 
