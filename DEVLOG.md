@@ -3,6 +3,7 @@
 ## ToDo
 
 - [x] **[bug] .mov container support** — Done. Try `decodeAudioData` first for all files, fallback to FFmpeg.wasm WAV extraction.
+- [ ] **[bug] Android regression** — iOS fixes (audio extraction reorder, FFmpeg WAV fallback, AudioContext warm-up, OffscreenCanvas changes) broke Android. Last known working Android commit: `c310828` (Update devlog, before iOS changes). Need to bisect commits `c310828..HEAD` to find what broke, likely the audio extraction pipeline change or memory pressure from loading FFmpeg twice (audio + burn). FFmpeg fallback also failing with "File could not be read".
 - [ ] **[perf] WebCodecs codec probing** — WebCodecs falls back to slow FFmpeg.wasm when HEVC decode isn't available. Fix: use `VideoDecoder.isConfigSupported()` to probe the video's actual codec before attempting. If HEVC unsupported, decode via `<video>` element + canvas capture (browser handles codec via OS-level decoders), then encode to H.264 via WebCodecs hardware encoder. Capability-based, not platform-based.
 - [x] **[bug] Portrait preview overflow** — Preview canvas overflows its container when video is portrait mode. Needs max-height constraint to keep it within viewport.
 - [ ] **Custom fonts for subtitle text** — Let user upload or select fonts for subtitles. Needs font loading via FontFace API for Canvas rendering, and writing the font file to FFmpeg virtual FS for the fallback path.
