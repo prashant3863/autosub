@@ -42,13 +42,19 @@
       font-size: 0.95rem;
     }
 
-    .brand-logo {
-      opacity: 0.4;
-      transition: opacity 0.2s;
+    .header-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
       flex-shrink: 0;
       margin-top: 4px;
     }
-    .brand-logo:hover { opacity: 0.7; }
+
+    .header-icon, .brand-logo {
+      opacity: 0.4;
+      transition: opacity 0.2s;
+    }
+    .header-icon:hover, .brand-logo:hover { opacity: 0.7; }
 
     /* Upload section */
     .upload-area {
@@ -418,9 +424,14 @@
         <h1>autosub</h1>
         <p class="subtitle">Add subtitles to videos, entirely in your browser.</p>
       </div>
-      <a href="https://notshant.xyz" target="_blank" class="brand-logo" title="notshant.xyz">
-        <img src="shant_logo.svg" alt="shant" height="24">
-      </a>
+      <div class="header-links">
+        <a href="https://github.com/prashant3863/autosub" target="_blank" class="header-icon" title="View on GitHub">
+          <img src="github_icon.svg" alt="GitHub" height="22">
+        </a>
+        <a href="https://notshant.xyz" target="_blank" class="brand-logo" title="notshant.xyz">
+          <img src="shant_logo.svg" alt="shant" height="24">
+        </a>
+      </div>
     </div>
 
     <!-- Upload -->
