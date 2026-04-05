@@ -23,7 +23,19 @@ export async function burnWithWebCodecs(videoFile, cues, style, sizeMult = 'medi
   console.log(`[webcodecs] ${totalFrames} frames, ${videoTrack.width}x${videoTrack.height}, codec: ${videoTrack.codec}`);
 
   // Step 2: Canvas for drawing subtitles
-  const canvas = new OffscreenCanvas(videoTrack.width, videoTrack.height);
+  // Use regular canvas as fallback — some devices don't support VideoFrame from OffscreenCanvas
+  let canvas;
+  try {
+    canvas = new OffscreenCanvas(videoTrack.width, videoTrack.height);
+    // Test that VideoFrame works with this canvas
+    const testFrame = new VideoFrame(canvas, { timestamp: 0 });
+    testFrame.close();
+  } catch (e) {
+    console.warn('[webcodecs] OffscreenCanvas not supported for VideoFrame, using HTMLCanvasElement');
+    canvas = document.createElement('canvas');
+    canvas.width = videoTrack.width;
+    canvas.height = videoTrack.height;
+  }
   const ctx = canvas.getContext('2d');
 
   // Step 3: Encoder + muxer

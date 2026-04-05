@@ -10,7 +10,9 @@ export async function extractFrame(videoFile, timeSec = 2) {
   const url = URL.createObjectURL(videoFile);
   const video = document.createElement('video');
   video.muted = true;
+  video.playsInline = true;  // required for iOS
   video.preload = 'auto';
+  video.crossOrigin = 'anonymous';
   video.src = url;
 
   return new Promise((resolve, reject) => {
@@ -27,10 +29,15 @@ export async function extractFrame(videoFile, timeSec = 2) {
 
     video.onseeked = async () => {
       try {
-        const bitmap = await createImageBitmap(video);
+        // Draw frame to canvas (works on all browsers including iOS Safari)
+        const c = document.createElement('canvas');
+        c.width = video.videoWidth;
+        c.height = video.videoHeight;
+        c.getContext('2d').drawImage(video, 0, 0);
         URL.revokeObjectURL(url);
-        video.src = ''; // release video resource
-        resolve(bitmap);
+        video.src = '';
+        // Return canvas as image source (works with drawImage like ImageBitmap)
+        resolve(c);
       } catch (e) {
         URL.revokeObjectURL(url);
         reject(e);
