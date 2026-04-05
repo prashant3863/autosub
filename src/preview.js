@@ -57,12 +57,14 @@ export async function extractFrame(videoFile, timeSec = 2) {
 export function renderPreview(canvas, frameBitmap, style, sizeMult = 'medium', yOverride = null) {
   const ctx = canvas.getContext('2d');
 
-  // Size canvas to fit the frame, capped to 70% viewport height for portrait videos
-  const maxHeight = Math.round(window.innerHeight * 0.7);
-  let displayWidth = canvas.clientWidth || 320;
+  // Container width is the constraint — compute height from aspect ratio
+  const containerWidth = canvas.parentElement?.clientWidth || 280;
+  const maxHeight = Math.round(window.innerHeight * 0.65);
   const aspect = frameBitmap.height / frameBitmap.width;
+  let displayWidth = containerWidth;
   let displayHeight = Math.round(displayWidth * aspect);
 
+  // Cap height for tall portrait videos
   if (displayHeight > maxHeight) {
     displayHeight = maxHeight;
     displayWidth = Math.round(displayHeight / aspect);

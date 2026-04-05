@@ -136,11 +136,18 @@ export async function burnWithWebCodecs(videoFile, cues, style, sizeMult = 'medi
 
   // Step 5: Add audio
   for (const chunk of audioChunks) {
-    addAudio(chunk);
+    if (chunk && chunk.data) {
+      addAudio(chunk);
+    }
   }
 
   // Step 6: Finalize
-  muxer.finalize();
+  try {
+    muxer.finalize();
+  } catch (e) {
+    console.error('[webcodecs] Muxer finalize failed:', e);
+    throw e;
+  }
   const buffer = muxer.target.buffer;
   return new Blob([buffer], { type: 'video/mp4' });
 }
