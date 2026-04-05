@@ -1,0 +1,22 @@
+{
+  "name": "autosub",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "@huggingface/transformers": "^3.4.1",
+    "coi-serviceworker": "^0.1.7",
+    "mp4-muxer": "^5.2.2",
+    "mp4box": "^2.3.0"
+  },
+  "devDependencies": {
+    "vite": "^6.3.1"
+  }
+}

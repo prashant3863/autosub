@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>autosub — Auto Subtitle Burner</title>
+  <script src="coi-serviceworker.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .container {
+      max-width: 1000px;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .subtitle {
+      color: #888;
+      margin-bottom: 32px;
+      font-size: 0.95rem;
+    }
+
+    /* Upload section */
+    .upload-area {
+      border: 2px dashed #333;
+      border-radius: 12px;
+      padding: 40px 24px;
+      text-align: center;
+      margin-bottom: 20px;
+      transition: border-color 0.2s;
+    }
+    .upload-area:hover { border-color: #555; }
+
+    .upload-area label {
+      display: inline-block;
+      padding: 10px 24px;
+      background: #2563eb;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+    .upload-area label:hover { background: #1d4ed8; }
+
+    .upload-area input[type="file"] { display: none; }
+
+    .file-name {
+      margin-top: 12px;
+      color: #aaa;
+      font-size: 0.85rem;
+    }
+
+    button {
+      padding: 12px 32px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+
+    .btn-secondary { background: #333; color: #e0e0e0; }
+    .btn-secondary:hover { background: #444; }
+
+    /* Config controls */
+    .config-group {
+      margin-bottom: 16px;
+    }
+
+    .config-label {
+      display: block;
+      font-size: 0.9rem;
+      color: #aaa;
+      margin-bottom: 8px;
+    }
+
+    .toggle-group {
+      display: inline-flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #333;
+    }
+
+    .toggle-btn {
+      padding: 8px 20px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      background: #1a1a1a;
+      color: #888;
+      border: none;
+      border-radius: 0;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .toggle-btn:not(:last-child) { border-right: 1px solid #333; }
+    .toggle-btn.active { background: #2563eb; color: #fff; }
+    .toggle-btn:hover:not(.active) { background: #222; }
+
+    .config-hint {
+      font-size: 0.8rem;
+      color: #666;
+      margin-top: 6px;
+    }
+
+    /* Style cards */
+    .style-cards {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .style-card {
+      cursor: pointer;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .style-card:hover { border-color: #555; }
+    .style-card.active { border-color: #2563eb; }
+
+    .style-card canvas {
+      display: block;
+      width: 100px;
+      height: 60px;
+    }
+
+    /* Split layout: controls left, preview right */
+    .split-layout {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+    }
+
+    .controls-panel {
+      flex: 1;
+      min-width: 0;
+    }
+
+    #previewContainer {
+      flex-shrink: 0;
+      width: 280px;
+      position: sticky;
+      top: 40px;
+    }
+
+    #previewCanvas {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #000;
+    }
+
+    .preview-label {
+      font-size: 0.8rem;
+      color: #666;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 700px) {
+      .split-layout {
+        flex-direction: column;
+      }
+      #previewContainer {
+        width: 100%;
+        position: static;
+        order: -1;
+      }
+    }
+
+    /* Height slider */
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slider-group input[type="range"] {
+      flex: 1;
+      height: 6px;
+      appearance: none;
+      background: #333;
+      border-radius: 3px;
+      outline: none;
+    }
+    .slider-group input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+    }
+
+    .slider-value {
+      font-size: 0.85rem;
+      color: #aaa;
+      min-width: 36px;
+      text-align: right;
+    }
+
+    /* Live transcript stream */
+    .live-transcript {
+      max-height: 180px;
+      overflow-y: auto;
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      text-align: left;
+      font-size: 0.9rem;
+      color: #ccc;
+      line-height: 1.6;
+    }
+    .live-transcript .new-chunk {
+      animation: fadeIn 0.3s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* Edit transcript section */
+    .section-title {
+      font-size: 1.2rem;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .section-hint {
+      font-size: 0.85rem;
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    #cueEditor {
+      max-height: 400px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .cue-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cue-time {
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: #666;
+      white-space: nowrap;
+      min-width: 100px;
+    }
+
+    .cue-text {
+      flex: 1;
+      padding: 6px 10px;
+      font-size: 0.9rem;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      border: 1px solid #333;
+      border-radius: 6px;
+      outline: none;
+      font-family: inherit;
+    }
+    .cue-text:focus { border-color: #2563eb; }
+
+    /* Processing section */
+    #processingSection {
+      text-align: center;
+    }
+
+    #phaseText {
+      font-size: 1rem;
+      margin-bottom: 16px;
+      color: #ccc;
+    }
+
+    progress {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      appearance: none;
+      margin-bottom: 16px;
+    }
+    progress::-webkit-progress-bar {
+      background: #222;
+      border-radius: 4px;
+    }
+    progress::-webkit-progress-value {
+      background: #2563eb;
+      border-radius: 4px;
+    }
+
+    /* Animated indeterminate bar (replaces <progress> when no value) */
+    .progress-indeterminate {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: #222;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .progress-indeterminate .bar {
+      height: 100%;
+      width: 30%;
+      background: #2563eb;
+      border-radius: 4px;
+      animation: slide 1.5s ease-in-out infinite;
+    }
+    @keyframes slide {
+      0%   { margin-left: -30%; }
+      100% { margin-left: 100%; }
+    }
+
+    #statusText {
+      color: #f87171;
+      margin-top: 12px;
+      font-size: 0.9rem;
+    }
+
+    /* Cue list */
+    #cueList {
+      list-style: none;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-top: 20px;
+      text-align: left;
+      font-size: 0.82rem;
+      font-family: monospace;
+      color: #aaa;
+    }
+    #cueList li {
+      padding: 4px 0;
+      border-bottom: 1px solid #222;
+    }
+    #cueList li:last-child { border-bottom: none; }
+
+    /* Download section */
+    #downloadSection {
+      text-align: center;
+    }
+
+    .success-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+
+    #fileSize {
+      color: #888;
+      font-size: 0.85rem;
+      margin-top: 8px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Video Subtitle Burner</h1>
+    <p class="subtitle">Upload a video and get it back with burned-in subtitles. Everything runs in your browser.</p>
+
+    <!-- Upload -->
+    <div id="uploadSection">
+      <div class="upload-area">
+        <label for="videoFile">Choose Video File</label>
+        <input type="file" id="videoFile" accept="video/*">
+        <div class="file-name" id="fileName">No file selected</div>
+      </div>
+
+      <div class="split-layout">
+        <div class="controls-panel">
+          <div class="config-group">
+            <label class="config-label">Video format</label>
+            <div class="toggle-group" id="formatGroup">
+              <button type="button" class="toggle-btn active" data-value="short" id="btnShort">Short-form</button>
+              <button type="button" class="toggle-btn" data-value="long" id="btnLong">Long-form</button>
+            </div>
+            <p class="config-hint" id="formatHint">Reels, TikTok, Shorts — 1-3 words, large text, centered</p>
+          </div>
+
+          <div class="config-group">
+            <label class="config-label">Subtitle style</label>
+            <div class="style-cards" id="styleCards"></div>
+          </div>
+
+          <div class="config-group">
+            <label class="config-label">Subtitle size</label>
+            <div class="toggle-group" id="sizeGroup">
+              <button type="button" class="toggle-btn size-btn" data-value="small">S</button>
+              <button type="button" class="toggle-btn size-btn active" data-value="medium">M</button>
+              <button type="button" class="toggle-btn size-btn" data-value="large">L</button>
+            </div>
+          </div>
+
+          <div class="config-group">
+            <label class="config-label">Subtitle position</label>
+            <div class="slider-group">
+              <span class="slider-value">Top</span>
+              <input type="range" id="heightSlider" min="10" max="90" value="60" step="1">
+              <span class="slider-value">Bottom</span>
+            </div>
+            <p class="config-hint" id="heightValue">Position: 60%</p>
+          </div>
+
+          <button id="startBtn" class="btn-primary" disabled>Add Subtitles</button>
+        </div>
+
+        <div id="previewContainer" style="display: none">
+          <canvas id="previewCanvas"></canvas>
+          <p class="preview-label">Live preview</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Processing -->
+    <div id="processingSection" style="display: none">
+      <p id="phaseText">Initializing...</p>
+      <progress id="progressBar" max="100" value="0"></progress>
+      <div id="indeterminateBar" class="progress-indeterminate" style="display: none"><div class="bar"></div></div>
+      <div id="liveTranscript" class="live-transcript" style="display: none"></div>
+      <p id="statusText"></p>
+    </div>
+
+    <!-- Edit transcript -->
+    <div id="editSection" style="display: none">
+      <h2 class="section-title">Review transcript</h2>
+      <p class="section-hint">Fix any misheard words, then confirm to burn subtitles.</p>
+      <div id="cueEditor"></div>
+      <div class="btn-group" style="margin-top: 16px">
+        <button id="confirmBurnBtn" class="btn-primary">Confirm & Burn</button>
+        <button id="cancelEditBtn" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Download -->
+    <div id="downloadSection" style="display: none">
+      <div class="success-icon">&#10003;</div>
+      <p>Your video is ready!</p>
+      <p id="fileSize"></p>
+      <div class="btn-group">
+        <button id="downloadBtn" class="btn-primary">Download Video</button>
+        <button id="startOverBtn" class="btn-secondary">Start Over</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('videoFile').addEventListener('change', function() {
+      document.getElementById('fileName').textContent = this.files[0]?.name || 'No file selected';
+    });
+
+    // Toggle group logic — each group is independent
+    document.querySelectorAll('.toggle-group').forEach(group => {
+      group.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+    });
+
+    // Format hint
+    const hints = {
+      short: 'Reels, TikTok, Shorts — 1-3 words, large text, centered',
+      long: 'YouTube, Vimeo — full sentences, smaller text, bottom',
+    };
+    document.querySelectorAll('#btnShort, #btnLong').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('formatHint').textContent = hints[btn.dataset.value];
+      });
+    });
+
+    // Height slider label
+    document.getElementById('heightSlider').addEventListener('input', function() {
+      document.getElementById('heightValue').textContent = `Position: ${this.value}%`;
+    });
+  </script>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
