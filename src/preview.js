@@ -57,10 +57,16 @@ export async function extractFrame(videoFile, timeSec = 2) {
 export function renderPreview(canvas, frameBitmap, style, sizeMult = 'medium', yOverride = null) {
   const ctx = canvas.getContext('2d');
 
-  // Size canvas to fit the frame at display width
-  const displayWidth = canvas.clientWidth || 320;
+  // Size canvas to fit the frame, capped to 70% viewport height for portrait videos
+  const maxHeight = Math.round(window.innerHeight * 0.7);
+  let displayWidth = canvas.clientWidth || 320;
   const aspect = frameBitmap.height / frameBitmap.width;
-  const displayHeight = Math.round(displayWidth * aspect);
+  let displayHeight = Math.round(displayWidth * aspect);
+
+  if (displayHeight > maxHeight) {
+    displayHeight = maxHeight;
+    displayWidth = Math.round(displayHeight / aspect);
+  }
 
   canvas.width = displayWidth;
   canvas.height = displayHeight;

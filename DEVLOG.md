@@ -2,9 +2,9 @@
 
 ## ToDo
 
-- [x] **[bug] .mov container support** — `decodeAudioData()` fails on `.mov` (QuickTime) files. Detect by file extension/MIME type (`video/quicktime`), not platform. Fix: use `<video>` element + `MediaStreamAudioDestinationNode` for audio extraction when `decodeAudioData` fails or file is `.mov`.
+- [x] **[bug] .mov container support** — Done. Try `decodeAudioData` first for all files, fallback to FFmpeg.wasm WAV extraction.
 - [ ] **[perf] WebCodecs codec probing** — WebCodecs falls back to slow FFmpeg.wasm when HEVC decode isn't available. Fix: use `VideoDecoder.isConfigSupported()` to probe the video's actual codec before attempting. If HEVC unsupported, decode via `<video>` element + canvas capture (browser handles codec via OS-level decoders), then encode to H.264 via WebCodecs hardware encoder. Capability-based, not platform-based.
-- [ ] **[bug] Portrait preview overflow** — Preview canvas overflows its container when video is portrait mode. Needs max-height constraint to keep it within viewport.
+- [x] **[bug] Portrait preview overflow** — Preview canvas overflows its container when video is portrait mode. Needs max-height constraint to keep it within viewport.
 - [ ] **Custom fonts for subtitle text** — Let user upload or select fonts for subtitles. Needs font loading via FontFace API for Canvas rendering, and writing the font file to FFmpeg virtual FS for the fallback path.
 
 ## Progress
@@ -25,10 +25,12 @@
 15. Transcript editing — editable cue list shown after transcription, user fixes words before burn
 16. Transcription moved to Web Worker — main thread stays free, CSS animations run smoothly
 17. Live transcript stream — partial text appears during transcription with real progress bar updates
-18. `.mov` container support — fallback audio extraction via `<video>` element + ScriptProcessorNode
+18. `.mov` container support — fallback audio extraction via FFmpeg.wasm WAV extraction
 19. Mobile debugging — on-screen error messages for WebCodecs/FFmpeg failures, font path fix for subpath deployments
 20. GitHub Pages deployment — coi-serviceworker, GH Actions workflow, Google Analytics with custom events
 21. Branding — shant logo, GitHub icon, favicon, README in author's voice
+22. iOS Safari fixes — AudioContext warm-up on user gesture, audio extraction before model load (5s gesture expiry), playsInline for video elements
+23. Unified default subtitle position (60% for all styles), slider preserved on style change
 
 ## Issues & Fixes
 
