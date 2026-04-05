@@ -199,6 +199,7 @@ async function runTranscribe() {
 
   perf.reset();
   perf.mark('start');
+  if (window.gtag) gtag('event', 'video_upload', { video_size_mb: Math.round(videoFile.size / 1024 / 1024) });
 
   uploadSection.style.display = 'none';
   processingSection.style.display = '';
@@ -232,6 +233,7 @@ async function runTranscribe() {
     });
     liveTranscript.style.display = 'none';
     perf.mark('transcription done');
+    if (window.gtag) gtag('event', 'transcription_complete');
 
     audio = null;
     showPhase('Freeing memory...');
@@ -315,6 +317,7 @@ async function runBurn() {
 
     perf.mark('done');
     perf.report();
+    if (window.gtag) gtag('event', 'burn_complete', { output_size_mb: sizeMB });
 
   } catch (err) {
     statusText.textContent = `Error: ${err.message}`;
