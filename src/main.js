@@ -1,4 +1,4 @@
-import { extractAudio } from './audio.js';
+import { extractAudio, warmUpAudioContext } from './audio.js';
 import { loadModel, transcribe, disposeModel } from './transcribe.js';
 import { groupIntoCues, generateDrawtextFilter } from './subtitles.js';
 import { burnSubtitles } from './burn.js';
@@ -193,6 +193,9 @@ function readEditedCues() {
 async function runTranscribe() {
   const videoFile = fileInput.files[0];
   if (!videoFile) return;
+
+  // Warm up AudioContext immediately on user tap (iOS requirement)
+  warmUpAudioContext();
 
   pendingVideoFile = videoFile;
   const format = getVideoFormat();

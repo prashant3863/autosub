@@ -1,5 +1,19 @@
 const TARGET_SAMPLE_RATE = 16000;
 
+// Pre-warm AudioContext on user gesture to satisfy iOS Safari restrictions.
+// Call this synchronously inside a click/tap handler before any async work.
+let warmAudioCtx = null;
+export function warmUpAudioContext() {
+  if (!warmAudioCtx) {
+    warmAudioCtx = new AudioContext();
+    // iOS requires resume() during a user gesture
+    if (warmAudioCtx.state === 'suspended') {
+      warmAudioCtx.resume();
+    }
+    console.log('[audio] AudioContext warmed up');
+  }
+}
+
 /**
  * Extract audio from a video File as a 16 kHz mono Float32Array.
  * Tries decodeAudioData first (fast), falls back to <video> element
@@ -27,7 +41,10 @@ export async function extractAudio(videoFile) {
  */
 async function extractViaDecodeAudioData(videoFile) {
   const arrayBuffer = await videoFile.arrayBuffer();
-  const audioCtx = new AudioContext();
+  // Reuse pre-warmed context if available (iOS gesture requirement)
+  const audioCtx = warmAudioCtx || new AudioContext();
+  warmAudioCtx = null; // consume it
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
   const decoded = await audioCtx.decodeAudioData(arrayBuffer);
 
   const numSamples = Math.ceil(decoded.duration * TARGET_SAMPLE_RATE);
@@ -52,6 +69,7 @@ async function extractViaDecodeAudioData(videoFile) {
 async function extractViaVideoElement(videoFile) {
   const url = URL.createObjectURL(videoFile);
   const video = document.createElement('video');
+  video.playsInline = true; // required for iOS
   video.preload = 'auto';
   video.src = url;
   video.volume = 0.01; // near-silent but not muted (muted disables audio pipeline)
@@ -62,7 +80,9 @@ async function extractViaVideoElement(videoFile) {
   });
 
   const duration = video.duration;
-  const audioCtx = new AudioContext();
+  const audioCtx = warmAudioCtx || new AudioContext();
+  warmAudioCtx = null;
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
   const source = audioCtx.createMediaElementSource(video);
 
   // Capture raw PCM samples via ScriptProcessorNode
