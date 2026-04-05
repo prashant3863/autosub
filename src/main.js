@@ -296,7 +296,8 @@ async function runBurn() {
         });
       } catch (e) {
         console.warn('[burn] WebCodecs failed, falling back to FFmpeg:', e);
-        showPhase('WebCodecs failed, falling back to FFmpeg...', 0);
+        statusText.textContent = `WebCodecs error: ${e.message}. Trying FFmpeg...`;
+        showPhase('Falling back to FFmpeg...', 0);
         const filterString = generateDrawtextFilter(cues, style, size, yOverride);
         outputBlob = await burnSubtitles(pendingVideoFile, filterString, (p) => {
           showPhase('Burning subtitles (software)...', p);
