@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>autosub — Auto Subtitle Burner</title>
+  <link rel="icon" href="shant_logo.svg" type="image/svg+xml">
   <script src="coi-serviceworker.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -23,17 +24,31 @@
       width: 100%;
     }
 
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+    }
+
     h1 {
       font-size: 1.6rem;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
       color: #fff;
     }
 
     .subtitle {
       color: #888;
-      margin-bottom: 32px;
       font-size: 0.95rem;
     }
+
+    .brand-logo {
+      opacity: 0.4;
+      transition: opacity 0.2s;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .brand-logo:hover { opacity: 0.7; }
 
     /* Upload section */
     .upload-area {
@@ -398,8 +413,15 @@
 </head>
 <body>
   <div class="container">
-    <h1>Video Subtitle Burner</h1>
-    <p class="subtitle">Upload a video and get it back with burned-in subtitles. Everything runs in your browser.</p>
+    <div class="header-row">
+      <div>
+        <h1>autosub</h1>
+        <p class="subtitle">Add subtitles to videos, entirely in your browser.</p>
+      </div>
+      <a href="https://notshant.xyz" target="_blank" class="brand-logo" title="notshant.xyz">
+        <img src="shant_logo.svg" alt="shant" height="24">
+      </a>
+    </div>
 
     <!-- Upload -->
     <div id="uploadSection">
