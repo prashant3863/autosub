@@ -70,6 +70,12 @@ fileInput.addEventListener('change', async () => {
     try {
       frameBitmap = await extractFrame(fileInput.files[0]);
       previewContainer.style.display = '';
+      // Wider preview for landscape videos
+      if (frameBitmap.width > frameBitmap.height) {
+        previewContainer.classList.add('landscape');
+      } else {
+        previewContainer.classList.remove('landscape');
+      }
       updatePreview();
     } catch (e) {
       console.warn('[preview] Failed to extract frame:', e);
