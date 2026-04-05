@@ -52,11 +52,6 @@ Object.entries(STYLE_PRESETS).forEach(([key, style]) => {
     document.querySelectorAll('.style-card').forEach(c => c.classList.remove('active'));
     card.classList.add('active');
     selectedStyle = key;
-
-    const defaultY = Math.round(style.yPosFrac * 100);
-    heightSlider.value = defaultY;
-    document.getElementById('heightValue').textContent = `Position: ${defaultY}%`;
-
     updatePreview();
   });
 });
