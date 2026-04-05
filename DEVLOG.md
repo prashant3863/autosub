@@ -2,7 +2,7 @@
 
 ## ToDo
 
-- [ ] **[bug] .mov container support** — `decodeAudioData()` fails on `.mov` (QuickTime) files. Detect by file extension/MIME type (`video/quicktime`), not platform. Fix: use `<video>` element + `MediaStreamAudioDestinationNode` for audio extraction when `decodeAudioData` fails or file is `.mov`.
+- [x] **[bug] .mov container support** — `decodeAudioData()` fails on `.mov` (QuickTime) files. Detect by file extension/MIME type (`video/quicktime`), not platform. Fix: use `<video>` element + `MediaStreamAudioDestinationNode` for audio extraction when `decodeAudioData` fails or file is `.mov`.
 - [ ] **[perf] WebCodecs codec probing** — WebCodecs falls back to slow FFmpeg.wasm when HEVC decode isn't available. Fix: use `VideoDecoder.isConfigSupported()` to probe the video's actual codec before attempting. If HEVC unsupported, decode via `<video>` element + canvas capture (browser handles codec via OS-level decoders), then encode to H.264 via WebCodecs hardware encoder. Capability-based, not platform-based.
 - [ ] **Custom fonts for subtitle text** — Let user upload or select fonts for subtitles. Needs font loading via FontFace API for Canvas rendering, and writing the font file to FFmpeg virtual FS for the fallback path.
 
@@ -24,6 +24,10 @@
 15. Transcript editing — editable cue list shown after transcription, user fixes words before burn
 16. Transcription moved to Web Worker — main thread stays free, CSS animations run smoothly
 17. Live transcript stream — partial text appears during transcription with real progress bar updates
+18. `.mov` container support — fallback audio extraction via `<video>` element + ScriptProcessorNode
+19. Mobile debugging — on-screen error messages for WebCodecs/FFmpeg failures, font path fix for subpath deployments
+20. GitHub Pages deployment — coi-serviceworker, GH Actions workflow, Google Analytics with custom events
+21. Branding — shant logo, GitHub icon, favicon, README in author's voice
 
 ## Issues & Fixes
 
@@ -123,3 +127,15 @@ WebCodecs burn: ~47 fps at 4K (hardware accelerated). Previous FFmpeg.wasm run t
 ### Progress bar frozen during transcription
 **Cause:** ONNX WASM inference blocks the main thread — `setInterval`, CSS animations, and DOM updates all freeze during Whisper's matrix operations. Even CSS compositor thread gets starved.
 **Fix:** Moved entire transcription pipeline to a **Web Worker** (`src/transcribe-worker.js`). Worker processes 30s audio chunks sequentially and posts `partial` messages with text + progress. Main thread stays completely free — progress bar and live transcript stream update smoothly. API surface unchanged (`loadModel`, `transcribe`, `disposeModel`).
+
+### .mov container fails on iOS / decodeAudioData
+**Cause:** `AudioContext.decodeAudioData()` doesn't support QuickTime `.mov` container. iPhones save videos as `.mov` by default.
+**Fix:** Detect `.mov` by file extension or MIME type (`video/quicktime`). Skip `decodeAudioData`, use fallback: play video through `<video>` element, capture audio via `createMediaElementSource` + `ScriptProcessorNode`, resample to 16kHz mono via `OfflineAudioContext`. Slower (real-time playback at 4x speed) but works for any container the browser can play.
+
+### Font path broken on subpath deployments
+**Cause:** `fetchFile('/fonts/LiberationSans-Bold.ttf')` used absolute path. On GitHub Pages the app lives at `/autosub/`, so the font was at `/autosub/fonts/...`.
+**Fix:** Resolve font URL via `new URL('fonts/...', document.baseURI).href` which respects Vite's `base` config.
+
+### Mobile: WebCodecs fails silently, FFmpeg error not visible
+**Cause:** WebCodecs error message flashed for a split second then got overwritten by FFmpeg's error. No way to debug on phone without DevTools.
+**Fix:** Combine both error messages (`WebCodecs: ... FFmpeg: ...`) and display persistently on screen.
