@@ -44,14 +44,20 @@ export async function burnSubtitles(videoFile, filterString, onProgress) {
     console.log('[ffmpeg] Loaded single-threaded core');
   }
 
-  await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile));
+  console.log('[ffmpeg] Writing input video to FS...');
+  const videoData = await fetchFile(videoFile);
+  console.log(`[ffmpeg] Video data: ${(videoData.byteLength / 1024 / 1024).toFixed(1)} MB`);
+  await ffmpeg.writeFile('input.mp4', videoData);
+
+  console.log('[ffmpeg] Writing font to FS...');
   await ffmpeg.createDir('fonts');
-  // Resolve font URL relative to page base (works on subpath deployments like /autosub/)
   const fontURL = new URL('fonts/LiberationSans-Bold.ttf', document.baseURI).href;
+  console.log('[ffmpeg] Font URL:', fontURL);
   await ffmpeg.writeFile(
     'fonts/LiberationSans-Bold.ttf',
     await fetchFile(fontURL)
   );
+  console.log('[ffmpeg] All files written to FS');
 
   const fullFilter = `format=yuv420p,${filterString}`;
 
